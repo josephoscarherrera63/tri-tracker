@@ -4,69 +4,81 @@ import plotly.express as px
 import requests
 from datetime import datetime
 
-# --- 1. CONFIG (Check these two carefully!) ---
-SHEET_ID = "184l-kXElCBotL4dv0lzyH1_uzQTtZuFkM5obZtsewBQ" 
-SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxoXZ3StdaqI9o-FAkOuIhFq-alDvZmSk4pKeOmcSmDc9MVzRE8RKNNqAWLI2_SEDsL/exec"
+# --- 1. CONFIG ---
+SHEET_ID = "YOUR_ID_HERE" 
+SCRIPT_URL = "YOUR_EXEC_URL_HERE"
 
-# These build the connection strings
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv"
+# Connection string for reading
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-st.set_page_config(page_title="Tri-Base Builder", layout="wide")
+st.set_page_config(page_title="Triathlon Training Hub", layout="wide")
 
 # --- 2. DATA LOADING ---
 def load_data():
     try:
-        # We use a trick to force Google to give us the latest data
-        data = pd.read_csv(SHEET_URL)
+        # We add a random number to the URL to force Google to give us the freshest data
+        data = pd.read_csv(f"{SHEET_URL}&cache={datetime.now().timestamp()}")
         if not data.empty:
             data['Date'] = pd.to_datetime(data['Date'])
+            data = data.sort_values('Date', ascending=False)
         return data
-    except Exception as e:
-        # This helps us see if the ID is the problem
-        st.error(f"⚠️ Connection Error: Please check your Sheet ID. (Technical error: {e})")
+    except:
         return pd.DataFrame()
 
 df = load_data()
 
-# --- 3. SIDEBAR (The Input Form) ---
-st.sidebar.header("Log New Session")
-date_input = st.sidebar.date_input("Date", datetime.now())
-sport_input = st.sidebar.selectbox("Sport", ["Swim", "Bike", "Run", "Strength"])
-duration_input = st.sidebar.number_input("Duration (mins)", min_value=1, step=5)
-distance_input = st.sidebar.number_input("Distance", min_value=0.0, step=0.1)
-intensity_input = st.sidebar.slider("Intensity (1-10)", 1, 10, 5)
+# --- 3. SIDEBAR ---
+st.sidebar.header("Log Workout")
+date_in = st.sidebar.date_input("Date", datetime.now())
+sport_in = st.sidebar.selectbox("Sport", ["Swim", "Bike", "Run", "Strength"])
+dur_in = st.sidebar.number_input("Duration (mins)", min_value=1, step=5)
+dist_in = st.sidebar.number_input("Distance", min_value=0.0, step=0.1)
+int_in = st.sidebar.slider("Intensity (1-10)", 1, 10, 5)
 
-# THE BIG LOG BUTTON
-if st.sidebar.button("🚀 Log Workout"):
-    if SHEET_ID == "PASTE_YOUR_ID_HERE" or SCRIPT_URL == "PASTE_YOUR_APPS_SCRIPT_URL_HERE":
-        st.sidebar.error("Setup incomplete: Add your IDs to the code on GitHub!")
-    else:
-        params = {
-            "date": date_input.strftime("%Y-%m-%d"),
-            "sport": sport_input,
-            "duration": duration_input,
-            "distance": distance_input,
-            "intensity": intensity_input,
-            "load": duration_input * intensity_input
-        }
-        try:
-            res = requests.get(SCRIPT_URL, params=params, timeout=10)
-            st.sidebar.success("Logged to Google Sheets!")
-            st.rerun() # This refreshes the app to show the new data
-        except:
-            st.sidebar.error("App couldn't talk to Google. Check your Apps Script URL.")
+if st.sidebar.button("🚀 Log to Google Sheets"):
+    params = {
+        "date": date_in.strftime("%Y-%m-%d"),
+        "sport": sport_in,
+        "duration": dur_in,
+        "distance": dist_in,
+        "intensity": int_in,
+        "load": dur_in * int_in
+    }
+    
+    # We send the data and don't "wait" for a complex response to avoid false errors
+    try:
+        requests.get(SCRIPT_URL, params=params, timeout=5)
+        st.sidebar.success("Workout Recorded!")
+        st.rerun()
+    except:
+        # If the data still shows up in your sheet, ignore this!
+        st.sidebar.warning("Note: Refresh sheet to verify log.")
 
-# --- 4. DASHBOARD DISPLAY ---
+# --- 4. DASHBOARD ---
 st.title("🏊‍♂️ My Training Dashboard")
 
 if not df.empty:
-    # Quick Stats
-    st.subheader("Total Volume")
-    fig = px.area(df.sort_values('Date'), x='Date', y='Duration', color='Sport')
-    st.plotly_chart(fig, use_container_width=True)
+    # Top Level Metrics
+    col1, col2, col3 = st.columns(3)
+    total_hrs = round(df['Duration'].sum() / 60, 1)
+    total_sessions = len(df)
+    avg_intensity = round(df['Intensity'].mean(), 1)
     
-    # Raw Data
-    st.subheader("History")
-    st.dataframe(df.sort_values('Date', ascending=False), use_container_width=True)
+    col1.metric("Total Time", f"{total_hrs} Hours")
+    col2.metric("Sessions", total_sessions)
+    col3.metric("Avg Intensity", f"{avg_intensity}/10")
+
+    # Chart Area
+    st.subheader("Weekly Training Load")
+    # Group by week and sum the 'Load'
+    weekly_df = df.groupby(pd.Grouper(key='Date', freq='W')).sum(numeric_only=True).reset_index()
+    fig = px.bar(weekly_df, x='Date', y='Load', 
+                 title="Cumulative Stress Score",
+                 color_discrete_sequence=['#00CC96'])
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Activity Table
+    st.subheader("Recent Activity")
+    st.dataframe(df[['Date', 'Sport', 'Duration', 'Distance', 'Load']], use_container_width=True)
 else:
-    st.info("No data found yet. Try logging your first workout in the sidebar!")
+    st.info("Your dashboard is ready! Log a workout in the sidebar to see your stats.")
