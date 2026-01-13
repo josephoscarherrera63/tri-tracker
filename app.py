@@ -4,19 +4,18 @@ import plotly.express as px
 import requests
 from datetime import datetime
 
-# --- 1. CONFIG (PASTE YOUR KEYS HERE) ---
+# --- 1. CONFIG (RE-PASTE YOUR KEYS HERE) ---
 SHEET_ID = "184l-kXElCBotL4dv0lzyH1_uzQTtZuFkM5obZtsewBQ" 
-SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZC6mjNrzRn9OnYEMHcSKQvaW7a8fdEd18aytaFIDx_ZmNRhGssb2bZwGX3_M1FxY1/exec"
+SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCUgz0fDWf4QQxzbTCP1zh-KsEDWR9IFG5qlljjNaf8XFus6UKVcCjUTdyhSiNWSbV/exec"
 
 # Connection string for reading
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/184l-kXElCBotL4dv0lzyH1_uzQTtZuFkM5obZtsewBQ/export?format=csv"
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 st.set_page_config(page_title="Triathlon Training Hub", layout="wide")
 
 # --- 2. DATA LOADING ---
 def load_data():
     try:
-        # Cache buster to ensure we get the latest Google Sheet data
         data = pd.read_csv(f"{SHEET_URL}&cache={datetime.now().timestamp()}")
         if not data.empty:
             data['Date'] = pd.to_datetime(data['Date'])
@@ -27,18 +26,14 @@ def load_data():
 
 df = load_data()
 
-# --- 3. SIDEBAR (Updated for Mobile) ---
+# --- 3. SIDEBAR (Mobile-Friendly Form) ---
 st.sidebar.header("Log Workout")
-
-# Create a form so the sidebar doesn't collapse on mobile after every click
 with st.sidebar.form("workout_form", clear_on_submit=True):
     date_in = st.date_input("Date", datetime.now())
     sport_in = st.selectbox("Sport", ["Swim", "Bike", "Run", "Strength"])
     dur_in = st.number_input("Duration (mins)", min_value=1, step=5)
     dist_in = st.number_input("Distance", min_value=0.0, step=0.1)
     int_in = st.slider("Intensity (1-10)", 1, 10, 5)
-    
-    # The button inside a form must be 'form_submit_button'
     submit_button = st.form_submit_button("🚀 Log to Google Sheets")
 
 if submit_button:
@@ -60,56 +55,49 @@ if submit_button:
 # --- 4. DASHBOARD ---
 st.title("🏊‍♂️ My Training Dashboard")
 
-# --- NEW: COACH'S ANALYSIS SECTION ---
 if not df.empty:
+    # --- COACH'S ANALYSIS ---
     st.subheader("📋 Coach's Analysis")
-    # Group by week (Monday start)
     df_sorted = df.sort_values('Date')
-    weekly = df_sorted.groupby(pd.Grouper(key='Date', freq='W-MON')).sum(numeric_only=True).reset_index()
+    weekly_total = df_sorted.groupby(pd.Grouper(key='Date', freq='W-MON')).sum(numeric_only=True).reset_index()
     
-    if len(weekly) > 1:
-        this_week = weekly.iloc[-1]['Load']
-        last_week = weekly.iloc[-2]['Load']
-        
-        # Calculate percent change in training stress
+    if len(weekly_total) > 1:
+        this_week = weekly_total.iloc[-1]['Load']
+        last_week = weekly_total.iloc[-2]['Load']
         increase = ((this_week - last_week) / last_week) * 100 if last_week > 0 else 0
 
         if increase > 25:
-            st.error(f"🚨 **DANGER ZONE:** Your load jumped {int(increase)}% this week. This is a massive spike!")
-            st.warning("👉 **ACTION:** Mandatory Deload recommended. Cut volume by 40% next week to avoid injury.")
+            st.error(f"🚨 **DANGER:** Load jumped {int(increase)}%. Risk of injury is high.")
         elif increase > 15:
-            st.warning(f"⚠️ **PUSHING HARD:** Load increased by {int(increase)}%.")
-            st.info("👉 **ACTION:** Hold steady next week. Do not increase volume further yet.")
+            st.warning(f"⚠️ **PUSHING:** Load up {int(increase)}%. Hold steady next week.")
         elif increase < -20:
-            st.success("🧊 **RECOVERY PHASE:** You are deloading. This is where the fitness gains actually 'lock in'.")
+            st.success("🧊 **RECOVERY:** Body is absorbing the work. Nice deload.")
         else:
-            st.success(f"✅ **STEET SPOT:** Steady {int(increase)}% change. Perfect progression.")
-    else:
-        st.info("Log data for two different weeks to enable trend analysis.")
-
-    # --- METRICS AND CHARTS ---
-    col1, col2, col3 = st.columns(3)
-    total_hrs = round(df['Duration'].sum() / 60, 1)
-    total_sessions = len(df)
-    avg_intensity = round(df['Intensity'].mean(), 1)
+            st.success(f"✅ **SWEET SPOT:** Steady {int(increase)}% progression.")
     
-    col1.metric("Total Time", f"{total_hrs} Hours")
-    col2.metric("Sessions", total_sessions)
-    col3.metric("Avg Intensity", f"{avg_intensity}/10")
+    # --- METRICS ---
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Time", f"{round(df['Duration'].sum() / 60, 1)} Hours")
+    col2.metric("Sessions", len(df))
+    col3.metric("Avg Intensity", f"{round(df['Intensity'].mean(), 1)}/10")
 
-    # Load Chart
-    st.subheader("Weekly Training Load")
-    fig = px.bar(weekly, x='Date', y='Load', color_discrete_sequence=['#00CC96'])
-    st.plotly_chart(fig, use_container_width=True)
+    # --- THE MULTI-COLOR BAR CHART ---
+    st.subheader("Weekly Training Load by Sport")
+    # Group by Week AND Sport for the colors
+    weekly_sport = df_sorted.groupby([pd.Grouper(key='Date', freq='W-MON'), 'Sport']).sum(numeric_only=True).reset_index()
+    
+    fig_bar = px.bar(weekly_sport, x='Date', y='Load', color='Sport',
+                 color_discrete_map={"Swim": "#00CC96", "Bike": "#636EFA", "Run": "#EF553B", "Strength": "#AB63FA"})
+    fig_bar.update_layout(barmode='stack', xaxis_title="Week Commencing", yaxis_title="Training Load")
+    st.plotly_chart(fig_bar, use_container_width=True)
 
-    # Discipline Split
+    # --- PIE CHART & TABLE ---
     st.subheader("Discipline Breakdown")
     sport_df = df.groupby('Sport')['Duration'].sum().reset_index()
     fig_pie = px.pie(sport_df, values='Duration', names='Sport', hole=0.4)
     st.plotly_chart(fig_pie, use_container_width=True)
 
-    # Activity Table
     st.subheader("Recent Activity")
     st.dataframe(df[['Date', 'Sport', 'Duration', 'Distance', 'Load']], use_container_width=True)
 else:
-    st.info("No data found. Start logging to see your coaching feedback!")
+    st.info("Awaiting training data...")
