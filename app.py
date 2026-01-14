@@ -51,14 +51,15 @@ if submit_button:
         st.rerun()
     except:
         st.sidebar.warning("Syncing... Refresh in a moment.")
-
-# --- 4. DASHBOARD ---
+        # --- 4. DASHBOARD ---
 st.title("🏊‍♂️ My Training Dashboard")
 
 if not df.empty:
     # --- COACH'S ANALYSIS ---
     st.subheader("📋 Coach's Analysis")
     df_sorted = df.sort_values('Date')
+    
+    # We still use 'Load' for the coach because it accounts for intensity
     weekly_total = df_sorted.groupby(pd.Grouper(key='Date', freq='W-MON')).sum(numeric_only=True).reset_index()
     
     if len(weekly_total) > 1:
@@ -75,28 +76,29 @@ if not df.empty:
         else:
             st.success(f"✅ **SWEET SPOT:** Steady {int(increase)}% progression.")
     
-    # --- METRICS ---
+    # --- METRICS (Top Row) ---
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Time", f"{round(df['Duration'].sum() / 60, 1)} Hours")
+    total_hrs = round(df['Duration'].sum() / 60, 1)
+    col1.metric("Total Time", f"{total_hrs} Hours")
     col2.metric("Sessions", len(df))
     col3.metric("Avg Intensity", f"{round(df['Intensity'].mean(), 1)}/10")
 
-# --- THE MULTI-COLOR BAR CHART WITH TREND LINE ---
-    st.subheader("Weekly Training Load & 4-Week Trend")
+    # --- THE HOURLY BAR CHART WITH TREND LINE ---
+    st.subheader("Weekly Training Volume (Hours)")
     
-    # 1. Prepare the Bar Data (by Sport)
+    # 1. Prepare data and convert Minutes to Hours
     weekly_sport = df_sorted.groupby([pd.Grouper(key='Date', freq='W-MON'), 'Sport']).sum(numeric_only=True).reset_index()
+    weekly_sport['Hours'] = weekly_sport['Duration'] / 60
     
-    # 2. Prepare the Trend Line Data (Total Weekly Load)
-    # We need a separate dataframe of just the totals to calculate a moving average
-    weekly_totals = weekly_sport.groupby('Date')['Load'].sum().reset_index()
-    weekly_totals['Trend'] = weekly_totals['Load'].rolling(window=4, min_periods=1).mean()
+    # 2. Prepare the Trend Line (Moving Average of Hours)
+    weekly_totals = weekly_sport.groupby('Date')['Hours'].sum().reset_index()
+    weekly_totals['Trend'] = weekly_totals['Hours'].rolling(window=4, min_periods=1).mean()
     
-    # 3. Create the Base Bar Chart
-    fig_bar = px.bar(weekly_sport, x='Date', y='Load', color='Sport',
+    # 3. Create the Chart
+    fig_bar = px.bar(weekly_sport, x='Date', y='Hours', color='Sport',
                  color_discrete_map={"Swim": "#00CC96", "Bike": "#636EFA", "Run": "#EF553B", "Strength": "#AB63FA"})
     
-    # 4. Add the Trend Line on top
+    # 4. Add the Trend Line (Average Hours)
     import plotly.graph_objects as go
     fig_bar.add_trace(
         go.Scatter(
@@ -104,12 +106,16 @@ if not df.empty:
             y=weekly_totals['Trend'],
             mode='lines+markers',
             name='4-Week Avg',
-            line=dict(color='white', width=3, dash='dot'),
-            marker=dict(size=8)
+            line=dict(color='white', width=3, dash='dot')
         )
     )
 
-    fig_bar.update_layout(barmode='stack', xaxis_title="Week Commencing", yaxis_title="Training Load")
+    fig_bar.update_layout(
+        barmode='stack', 
+        xaxis_title="Week Commencing", 
+        yaxis_title="Total Hours",
+        yaxis=dict(ticksuffix=" hrs")
+    )
     st.plotly_chart(fig_bar, use_container_width=True)
 
     # --- PIE CHART & TABLE ---
@@ -122,3 +128,4 @@ if not df.empty:
     st.dataframe(df[['Date', 'Sport', 'Duration', 'Distance', 'Load']], use_container_width=True)
 else:
     st.info("Awaiting training data...")
+
