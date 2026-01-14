@@ -71,27 +71,33 @@ else:
     st.success("🏁 It's Race Season!")
 
 if not df.empty:
-    # --- COACH'S ANALYSIS ---
+    # --- COACH'S ANALYSIS (With Mid-Week Awareness) ---
     st.subheader("📋 Coach's Analysis")
     df_sorted = df.sort_values('Date')
-    
-    # We still use 'Load' for the coach because it accounts for intensity
     weekly_total = df_sorted.groupby(pd.Grouper(key='Date', freq='W-MON')).sum(numeric_only=True).reset_index()
     
     if len(weekly_total) > 1:
         this_week = weekly_total.iloc[-1]['Load']
         last_week = weekly_total.iloc[-2]['Load']
+        
+        # Check what day of the week it is (0=Mon, 6=Sun)
+        day_of_week = datetime.now().weekday()
+        
+        # If it's Mon-Thu, we acknowledge the week is incomplete
+        if day_of_week < 4: 
+            st.info(f"⏳ **Mid-Week Status:** You've built {int(this_week)} load points so far. Comparison will be more accurate by Friday!")
+        
         increase = ((this_week - last_week) / last_week) * 100 if last_week > 0 else 0
 
-        if increase > 25:
-            st.error(f"🚨 **DANGER:** Load jumped {int(increase)}%. Risk of injury is high.")
-        elif increase > 15:
-            st.warning(f"⚠️ **PUSHING:** Load up {int(increase)}%. Hold steady next week.")
-        elif increase < -20:
-            st.success("🧊 **RECOVERY:** Body is absorbing the work. Nice deload.")
-        else:
-            st.success(f"✅ **SWEET SPOT:** Steady {int(increase)}% progression.")
-    
+        if day_of_week >= 4: # Only show warnings/success on Fri, Sat, Sun
+            if increase > 25:
+                st.error(f"🚨 **DANGER:** Load jumped {int(increase)}%. Risk of injury is high.")
+            elif increase > 15:
+                st.warning(f"⚠️ **PUSHING:** Load up {int(increase)}%. Hold steady next week.")
+            elif increase < -20:
+                st.success("🧊 **RECOVERY:** Body is absorbing the work. Nice deload.")
+            else:
+                st.success(f"✅ **SWEET SPOT:** Steady {int(increase)}% progression.")    
     # --- SEASON TOTALS (Distance) ---
     st.subheader("🏁 2026 Season Totals")
     m_col1, m_col2, m_col3 = st.columns(3)
