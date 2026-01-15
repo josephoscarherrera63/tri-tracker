@@ -98,21 +98,26 @@ if not df.empty:
                 st.success("🧊 **RECOVERY:** Body is absorbing the work. Nice deload.")
             else:
                 st.success(f"✅ **SWEET SPOT:** Steady {int(increase)}% progression.")    
-    # --- SEASON TOTALS (Distance) ---
+    # --- SEASON TOTALS (2026 ONLY) ---
     st.subheader("🏁 2026 Season Totals")
     m_col1, m_col2, m_col3 = st.columns(3)
     
-    # Calculate distances by sport
-    swim_dist = df[df['Sport'] == 'Swim']['Distance'].sum()
-    bike_dist = df[df['Sport'] == 'Bike']['Distance'].sum()
-    run_dist = df[df['Sport'] == 'Run']['Distance'].sum()
+    # Create a filter for just the current year
+    current_year = datetime.now().year
+    df_2026 = df[df['Date'].dt.year == current_year]
     
-    # Display them as nice big numbers
+    # Calculate distances using only 2026 data
+    swim_dist = df_2026[df_2026['Sport'] == 'Swim']['Distance'].sum()
+    bike_dist = df_2026[df_2026['Sport'] == 'Bike']['Distance'].sum()
+    run_dist = df_2026[df_2026['Sport'] == 'Run']['Distance'].sum()
+    
+    # Display them
     m_col1.metric("🏊‍♂️ Swim", f"{int(swim_dist)} yds/m")
     m_col2.metric("🚴‍♂️ Bike", f"{round(bike_dist, 1)} miles")
     m_col3.metric("🏃‍♂️ Run", f"{round(run_dist, 1)} miles")
 
-    st.divider() # Adds a nice line to separate totals from the rest of the dashboard
+    st.divider()
+    # Adds a nice line to separate totals from the rest of the dashboard
     # --- THE HOURLY BAR CHART WITH TREND LINE ---
     st.subheader("Weekly Training Volume (Hours)")
     
