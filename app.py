@@ -35,6 +35,24 @@ with st.sidebar.form("workout_form", clear_on_submit=True):
     dist_in = st.number_input("Distance", min_value=0.0, step=0.1)
     int_in = st.slider("Intensity (1-10)", 1, 10, 5)
     submit_button = st.form_submit_button("🚀 Log to Google Sheets")
+    # --- DATE FILTER (In Sidebar) ---
+st.sidebar.divider()
+st.sidebar.subheader("📅 View Options")
+time_frame = st.sidebar.selectbox(
+    "Select Time Frame",
+    ["All Time", "Year to Date", "Last 90 Days", "Last 30 Days"]
+)
+
+# Filter logic
+today = datetime.now()
+if time_frame == "Year to Date":
+    df_filtered = df[df['Date'].dt.year == today.year]
+elif time_frame == "Last 90 Days":
+    df_filtered = df[df['Date'] >= (today - timedelta(days=90))]
+elif time_frame == "Last 30 Days":
+    df_filtered = df[df['Date'] >= (today - timedelta(days=30))]
+else:
+    df_filtered = df
 
 if submit_button:
     params = {
@@ -53,133 +71,89 @@ if submit_button:
         st.sidebar.warning("Syncing... Refresh in a moment.")
         # --- 4. DASHBOARD ---
 st.title("🏊‍♂️ My Training Dashboard")
-# --- RACE COUNTDOWN ---
-race_date = datetime(2026, 6, 21)
-days_to_go = (race_date - datetime.now()).days
 
-if days_to_go > 0:
-    st.info(f"🗓️ **{days_to_go} Days** until the first Sprint Tri window (June 21)")
-    
-    # Progress bar towards June 21 (assuming a 20-week build)
-    progress = max(0, min(100, int((1 - (days_to_go / 140)) * 100)))
-    st.progress(progress, text=f"Season Build: {progress}%")
-    
-    with st.expander("View Summer Race Schedule"):
-        st.write("Targeting one of these Sprint dates:")
-        st.write("✅ **June 21** | July 12 | July 26 | August 9")
+# --- DATE FILTER (Internal Logic) ---
+# We use df_filtered for the charts/coach, but keep df for Lifetime stats
+today = datetime.now()
+if time_frame == "Year to Date":
+    df_filtered = df[df['Date'].dt.year == today.year]
+elif time_frame == "Last 90 Days":
+    df_filtered = df[df['Date'] >= (today - timedelta(days=90))]
+elif time_frame == "Last 30 Days":
+    df_filtered = df[df['Date'] >= (today - timedelta(days=30))]
 else:
-    st.success("🏁 It's Race Season!")
+    df_filtered = df
 
-if not df.empty:
-    # --- COACH'S ANALYSIS (With Mid-Week Awareness) ---
+if not df_filtered.empty:
+    # --- COACH'S ANALYSIS ---
     st.subheader("📋 Coach's Analysis")
-    df_sorted = df.sort_values('Date')
+    df_sorted = df_filtered.sort_values('Date')
+    
     weekly_total = df_sorted.groupby(pd.Grouper(key='Date', freq='W-MON')).sum(numeric_only=True).reset_index()
     
     if len(weekly_total) > 1:
         this_week = weekly_total.iloc[-1]['Load']
         last_week = weekly_total.iloc[-2]['Load']
-        
-        # Check what day of the week it is (0=Mon, 6=Sun)
         day_of_week = datetime.now().weekday()
         
-        # If it's Mon-Thu, we acknowledge the week is incomplete
         if day_of_week < 4: 
-            st.info(f"⏳ **Mid-Week Status:** You've built {int(this_week)} load points so far. Comparison will be more accurate by Friday!")
+            st.info(f"⏳ **Mid-Week Status:** {int(this_week)} load points built. Check back Friday for your weekly grade!")
         
         increase = ((this_week - last_week) / last_week) * 100 if last_week > 0 else 0
 
-        if day_of_week >= 4: # Only show warnings/success on Fri, Sat, Sun
+        if day_of_week >= 4:
             if increase > 25:
                 st.error(f"🚨 **DANGER:** Load jumped {int(increase)}%. Risk of injury is high.")
             elif increase > 15:
                 st.warning(f"⚠️ **PUSHING:** Load up {int(increase)}%. Hold steady next week.")
             elif increase < -20:
-                st.success("🧊 **RECOVERY:** Body is absorbing the work. Nice deload.")
+                st.success("🧊 **RECOVERY:** Body is absorbing the work.")
             else:
-                st.success(f"✅ **SWEET SPOT:** Steady {int(increase)}% progression.")    
-    # --- SEASON TOTALS (2026 ONLY) ---
-    st.subheader("🏁 2026 Season Totals")
+                st.success(f"✅ **SWEET SPOT:** Steady {int(increase)}% progression.")
+    
+    # --- SEASON TOTALS (Always 2026) ---
+    st.subheader(f"🏁 {today.year} Season Totals")
     m_col1, m_col2, m_col3 = st.columns(3)
+    df_2026 = df[df['Date'].dt.year == today.year]
     
-    # Create a filter for just the current year
-    current_year = datetime.now().year
-    df_2026 = df[df['Date'].dt.year == current_year]
-    
-    # Calculate distances using only 2026 data
-    swim_dist = df_2026[df_2026['Sport'] == 'Swim']['Distance'].sum()
-    bike_dist = df_2026[df_2026['Sport'] == 'Bike']['Distance'].sum()
-    run_dist = df_2026[df_2026['Sport'] == 'Run']['Distance'].sum()
-    
-    # Display them
-    m_col1.metric("🏊‍♂️ Swim", f"{int(swim_dist)} yds/m")
-    m_col2.metric("🚴‍♂️ Bike", f"{round(bike_dist, 1)} miles")
-    m_col3.metric("🏃‍♂️ Run", f"{round(run_dist, 1)} miles")
+    m_col1.metric("🏊‍♂️ Swim", f"{int(df_2026[df_2026['Sport'] == 'Swim']['Distance'].sum())} yds")
+    m_col2.metric("🚴‍♂️ Bike", f"{round(df_2026[df_2026['Sport'] == 'Bike']['Distance'].sum(), 1)} mi")
+    m_col3.metric("🏃‍♂️ Run", f"{round(df_2026[df_2026['Sport'] == 'Run']['Distance'].sum(), 1)} mi")
 
-    st.divider()
-    # Adds a nice line to separate totals from the rest of the dashboard
-    # --- THE HOURLY BAR CHART WITH TREND LINE ---
-    st.subheader("Weekly Training Volume (Hours)")
+    # --- VOLUME BAR CHART ---
+    st.subheader(f"Weekly Volume: {time_frame}")
     
-    # 1. Prepare data and convert Minutes to Hours
     weekly_sport = df_sorted.groupby([pd.Grouper(key='Date', freq='W-MON'), 'Sport']).sum(numeric_only=True).reset_index()
     weekly_sport['Hours'] = weekly_sport['Duration'] / 60
     
-    # 2. Prepare the Trend Line (Moving Average of Hours)
     weekly_totals = weekly_sport.groupby('Date')['Hours'].sum().reset_index()
     weekly_totals['Trend'] = weekly_totals['Hours'].rolling(window=4, min_periods=1).mean()
     
-    # 3. Create the Chart
     fig_bar = px.bar(weekly_sport, x='Date', y='Hours', color='Sport',
                  color_discrete_map={"Swim": "#00CC96", "Bike": "#636EFA", "Run": "#EF553B", "Strength": "#AB63FA"})
     
-    # 4. Add the Trend Line (Average Hours)
     import plotly.graph_objects as go
-    fig_bar.add_trace(
-        go.Scatter(
-            x=weekly_totals['Date'], 
-            y=weekly_totals['Trend'],
-            mode='lines+markers',
-            name='4-Week Avg',
-            line=dict(color='white', width=3, dash='dot')
-        )
-    )
+    fig_bar.add_trace(go.Scatter(x=weekly_totals['Date'], y=weekly_totals['Trend'],
+                                 mode='lines+markers', name='4-Week Avg',
+                                 line=dict(color='white', width=3, dash='dot')))
 
-    fig_bar.update_layout(
-        barmode='stack', 
-        xaxis_title="Week Commencing", 
-        yaxis_title="Total Hours",
-        yaxis=dict(ticksuffix=" hrs")
-    )
+    fig_bar.update_layout(barmode='stack', xaxis_title="Week", yaxis_title="Hours")
     st.plotly_chart(fig_bar, use_container_width=True)
 
-    # --- PIE CHART & TABLE ---
-    st.subheader("Discipline Breakdown")
-    sport_df = df.groupby('Sport')['Duration'].sum().reset_index()
-    fig_pie = px.pie(sport_df, values='Duration', names='Sport', hole=0.4)
-    st.plotly_chart(fig_pie, use_container_width=True)
-
-  # --- TABLE ---
-    st.subheader("Recent Activity")
-    st.dataframe(df[['Date', 'Sport', 'Duration', 'Distance', 'Load']], use_container_width=True)
+    # --- RECENT ACTIVITY ---
+    st.subheader(f"Activity Log ({time_frame})")
+    st.dataframe(df_sorted[['Date', 'Sport', 'Duration', 'Distance', 'Load']].sort_values('Date', ascending=False), use_container_width=True)
 
     # --- LIFETIME TOTALS ---
     st.divider()
     st.subheader("🏆 Lifetime Totals")
     st.write(f"Since your first triathlon on {df['Date'].min().strftime('%B %d, %Y')}")
-    
     l_col1, l_col2, l_col3, l_col4 = st.columns(4)
     
-    total_swim = df[df['Sport'] == 'Swim']['Distance'].sum()
-    total_bike = df[df['Sport'] == 'Bike']['Distance'].sum()
-    total_run = df[df['Sport'] == 'Run']['Distance'].sum()
-    total_hours = round(df['Duration'].sum() / 60, 1)
+    l_col1.metric("Total Hours", f"{round(df['Duration'].sum() / 60, 1)}")
+    l_col2.metric("Total Swim", f"{int(df[df['Sport'] == 'Swim']['Distance'].sum())} yds")
+    l_col3.metric("Total Bike", f"{int(df[df['Sport'] == 'Bike']['Distance'].sum())} mi")
+    l_col4.metric("Total Run", f"{int(df[df['Sport'] == 'Run']['Distance'].sum())} mi")
 
-    l_col1.metric("Total Hours", f"{total_hours}")
-    l_col2.metric("Total Swim", f"{int(total_swim)} yds")
-    l_col3.metric("Total Bike", f"{int(total_bike)} mi")
-    l_col4.metric("Total Run", f"{int(total_run)} mi")
-
-# This 'else' must be all the way to the left, matching the 'if' at the top of Section 4
 else:
-    st.info("Awaiting training data...")
+    st.info(f"No data found for the period: {time_frame}")
