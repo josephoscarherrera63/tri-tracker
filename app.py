@@ -139,7 +139,24 @@ if not df_filtered.empty:
 
     fig_bar.update_layout(barmode='stack', xaxis_title="Week", yaxis_title="Hours")
     st.plotly_chart(fig_bar, use_container_width=True)
-
+# --- PIE CHART (Discipline Breakdown) ---
+    st.divider()
+    st.subheader(f"Discipline Breakdown: {time_frame}")
+    
+    # Use df_filtered so the pie chart reacts to your sidebar selection
+    sport_df = df_filtered.groupby('Sport')['Duration'].sum().reset_index()
+    
+    # Create the chart
+    fig_pie = px.pie(
+        sport_df, 
+        values='Duration', 
+        names='Sport', 
+        hole=0.4,
+        color='Sport',
+        color_discrete_map={"Swim": "#00CC96", "Bike": "#636EFA", "Run": "#EF553B", "Strength": "#AB63FA"}
+    )
+    
+    st.plotly_chart(fig_pie, use_container_width=True)
     # --- RECENT ACTIVITY ---
     st.subheader(f"Activity Log ({time_frame})")
     st.dataframe(df_sorted[['Date', 'Sport', 'Duration', 'Distance', 'Load']].sort_values('Date', ascending=False), use_container_width=True)
