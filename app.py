@@ -71,17 +71,38 @@ if submit_button:
         st.sidebar.warning("Syncing... Refresh in a moment.")
         # --- 4. DASHBOARD ---
 st.title("🏊‍♂️ My Training Dashboard")
-# --- RACE COUNTDOWN ---
-race_date = datetime(2026, 6, 21)
-days_to_race = (race_date - datetime.now()).days
+# --- RACE SCHEDULE & COUNTDOWN ---
+race_schedule = [
+    {"name": "Charleston Sprint #1", "date": datetime(2026, 6, 21)},
+    {"name": "Charleston Sprint #2", "date": datetime(2026, 7, 12)},
+    {"name": "Charleston Sprint #3", "date": datetime(2026, 7, 26)},
+    {"name": "Charleston Sprint Finale", "date": datetime(2026, 8, 9)},
+]
 
-if days_to_race > 0:
-    st.info(f"🏁 **{days_to_race} Days** until your next Triathlon! (June 21, 2026)")
-elif days_to_race == 0:
-    st.balloons()
-    st.success("🎉 Today is RACE DAY! Good luck!")
+# Find the next upcoming race
+upcoming_races = [r for r in race_schedule if (r['date'] - datetime.now()).days >= 0]
+
+if upcoming_races:
+    next_race = upcoming_races[0]
+    days_to_next = (next_race['date'] - datetime.now()).days
+    
+    # Highlighting the countdown
+    st.info(f"🏁 **{days_to_next} Days** until **{next_race['name']}** ({next_race['date'].strftime('%B %d')})")
+    
+    # Full Series Overview
+    with st.expander("Full 2026 Charleston Series"):
+        for r in race_schedule:
+            days_diff = (r['date'] - datetime.now()).days
+            if days_diff < 0:
+                status = "✅ Finished"
+            elif days_diff == 0:
+                status = "🚀 RACE DAY"
+            else:
+                status = f"⏳ T-minus {days_diff} days"
+            
+            st.write(f"**{r['name']}**: {r['date'].strftime('%b %d')} — {status}")
 else:
-    st.write("Hope the race went well! Time to set a new goal.")
+    st.success("🏆 Series Complete! All Charleston races finished.")
 
 st.divider()
 # --- DATE FILTER (Internal Logic) ---
