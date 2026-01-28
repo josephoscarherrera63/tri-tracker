@@ -54,22 +54,13 @@ with st.sidebar:
         st.rerun()
 
 # --- DASHBOARD ---
+st.divider()
+
 if not df.empty:
+    st.subheader("Raw Data Preview")
+    st.dataframe(df.tail(5)) # Shows the last 5 entries
+
     tab1, tab2 = st.tabs(["Efficiency Trends", "Decoupling Calculator"])
-    
-    with tab1:
-        # Only chart Steady State for the 'vibe' check
-        steady_df = df[df['Type'] == "Steady State (Z2)"]
-        if not steady_df.empty:
-            st.line_chart(steady_df, x="Date", y="EF", color="Discipline")
-        else:
-            st.info("No Steady State logs found yet.")
-            
-    with tab2:
-        # Quick Decoupling Tool (Mental Math helper)
-        st.subheader("Drift Calculator")
-        h1 = st.number_input("1st Half EF", value=1.40)
-        h2 = st.number_input("2nd Half EF", value=1.35)
-        calc = ((h1 - h2) / h1) * 100
-        st.metric("Calculated Drift", f"{calc:.1f}%")
-        if calc < 5: st.success("Green Light: Aerobically Stable")
+    # ... (rest of the tab code)
+else:
+    st.warning("The app is connected, but the dataframe is empty. Try adding a session in the sidebar!")
