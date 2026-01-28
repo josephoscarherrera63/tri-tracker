@@ -13,6 +13,8 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 df = conn.read(spreadsheet=url, ttl=0)
 # Load existing data
 df = conn.read(spreadsheet=url)
+df = conn.read(spreadsheet=url, ttl=0)
+df['Date'] = pd.to_datetime(df['Date']) # This makes the chart timeline look pretty
 
 st.title("🏊‍♂️🚴‍♂️🏃‍♂️ Adaptation Lab")
 
