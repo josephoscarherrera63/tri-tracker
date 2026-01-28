@@ -9,7 +9,8 @@ st.set_page_config(page_title="Adaptation Lab", layout="wide")
 # Paste your Google Sheet URL here
 url = "https://docs.google.com/spreadsheets/d/12zB73yww1IyPSVfhlofLJ4VV7Se-V3iBKd_tnwbRdWM/edit?usp=sharing"
 conn = st.connection("gsheets", type=GSheetsConnection)
-
+# This tells Streamlit to ignore the old "empty" version of the sheet
+df = conn.read(spreadsheet=url, ttl=0)
 # Load existing data
 df = conn.read(spreadsheet=url)
 
