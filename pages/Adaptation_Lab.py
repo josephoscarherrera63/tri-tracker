@@ -82,6 +82,22 @@ if st.sidebar.button("Save to Google Sheets"):
     # Append to Google Sheets
     conn.create(data=new_data)
     st.sidebar.success("Session Logged! Refresh to see the chart.")
+    # --- UPDATE THIS SECTION ---
+if st.sidebar.button("Save to Google Sheets"):
+    # Calculate EF before saving
+    ef_val = avg_work / avg_hr if avg_hr > 0 else 0
+    
+    new_data = pd.DataFrame([{
+        "Date": date_selection.strftime("%Y-%m-%d"),
+        "Discipline": discipline,
+        "Type": type_selection,
+        "EF": round(ef_val, 4),
+        "Decoupling": drift
+    }])
+    
+    # ADD THE URL HERE:
+    conn.create(spreadsheet=url, data=new_data) 
+    st.sidebar.success("Session Logged! Refresh to see the chart.")
 # --- RECOVERY MONITORING LOGIC ---
 # Place this after you've defined 'df' (the part where you read from Google Sheets)
 if not df.empty:
