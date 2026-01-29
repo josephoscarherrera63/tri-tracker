@@ -67,7 +67,7 @@ avg_hr = st.sidebar.number_input("Avg Heart Rate (BPM)", min_value=0, value=120)
 drift = st.sidebar.number_input("Decoupling / Drift (%)", min_value=0.0, max_value=100.0, value=0.0, step=0.1)
 
 # 3. The Save Button
-if st.sidebar.button("Save to Google Sheets"):
+
     # Calculate EF before saving
     ef_val = avg_work / avg_hr if avg_hr > 0 else 0
     
