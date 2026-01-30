@@ -107,14 +107,28 @@ if not df.empty:
         column_order=("Date", "Discipline", "Type", "EF", "Decoupling", "Status")
     )
 
-    # --- TREND CHART ---
+    # --- TREND CHART WITH FILTER ---
     st.divider()
     st.subheader("📈 Aerobic Progress Trends")
-    chart_df = df.sort_values(by="Date")
-    tab1, tab2 = st.tabs(["Efficiency Factor", "Decoupling (Drift)"])
-    with tab1:
-        st.line_chart(data=chart_df, x="Date", y="EF")
-    with tab2:
-        st.line_chart(data=chart_df, x="Date", y="Decoupling")
-else:
-    st.info("No data found. Log your first session!")
+    
+    # Filter for the charts
+    chart_filter = st.radio("Show Trends For:", ["All", "Bike", "Run", "Swim"], horizontal=True)
+    
+    if chart_filter == "All":
+        chart_df = df.sort_values(by="Date")
+    else:
+        chart_df = df[df['Discipline'] == chart_filter].sort_values(by="Date")
+    
+    if not chart_df.empty:
+        tab1, tab2 = st.tabs(["Efficiency Factor (EF)", "Decoupling (Drift %)"])
+        
+        with tab1:
+            st.line_chart(data=chart_df, x="Date", y="EF")
+            st.caption(f"Tracking your output-to-HR ratio for {chart_filter}")
+            
+        with tab2:
+            # We add a horizontal line at 5% in our minds as the 'Stability' threshold
+            st.line_chart(data=chart_df, x="Date", y="Decoupling")
+            st.caption("Goal: Keep these points below 5.0 for 'Stable' status.")
+    else:
+        st.write(f"No {chart_filter} data logged yet to show a trend.")
