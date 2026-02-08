@@ -28,7 +28,7 @@ with st.sidebar:
     
     discipline = st.selectbox("Discipline", options=["Bike", "Run", "Swim"])
     
-    # Custom options based on discipline
+    # Workout options based on discipline
     if discipline == "Run":
         workout_options = ["Aerobic Base Build", "Threshold Intervals", "Hill Repeats", "Easy Recovery Run", "Other"]
     elif discipline == "Bike":
@@ -39,32 +39,29 @@ with st.sidebar:
     type_selection = st.selectbox("Workout Category", options=workout_options)
     date_selection = st.date_input("Workout Date", value=datetime.now())
 
-    # --- DYNAMIC INPUTS ---
+    # --- DYNAMIC INPUTS (ONLY ONE SECTION ALLOWED) ---
     if discipline == "Bike":
         avg_work = st.number_input("Avg Power (Watts)", min_value=0, value=130)
         work_for_calc = float(avg_work)
     elif discipline == "Run":
         st.write("Enter Avg Pace:")
         col_min, col_sec = st.columns(2)
-        m_pace = col_min.number_input("Min", min_value=0, max_value=20, value=9)
-        s_pace = col_sec.number_input("Sec", min_value=0, max_value=59, value=30)
+        # We use unique keys here just to be 100% safe from duplicate errors
+        m_pace = col_min.number_input("Min", min_value=0, max_value=20, value=9, key="run_min")
+        s_pace = col_sec.number_input("Sec", min_value=0, max_value=59, value=30, key="run_sec")
         
-        # Calculate Decimal Pace (e.g. 9:30 -> 9.5)
         pace_decimal = m_pace + (s_pace / 60)
-        # We use (1 / pace) * 1000 to get a 'speed' index that makes EF work
         work_for_calc = (1 / pace_decimal) * 1000 if pace_decimal > 0 else 0
     else:
-        work_for_calc = st.number_input("Avg Speed/Pace", min_value=0.0, value=100.0)
+        work_for_calc = st.number_input("Avg Speed", min_value=0.0, value=100.0, key="swim_speed")
 
     avg_hr = st.number_input("Avg Heart Rate (BPM)", min_value=1, value=120)
     drift = st.number_input("Decoupling / Drift (%)", min_value=0.0, max_value=100.0, value=0.0, step=0.1)
 
-    # --- THE SAVE BUTTON ---
+    # --- THE ONLY SAVE BUTTON ---
     if st.button("Save to Google Sheets"):
-        # Calculate EF
         calculated_ef = round(work_for_calc / avg_hr, 4) if avg_hr > 0 else 0
         
-        # Create the new row
         new_row = pd.DataFrame([{
             "Date": date_selection.strftime("%Y-%m-%d"),
             "Discipline": discipline,
@@ -73,19 +70,15 @@ with st.sidebar:
             "Decoupling": float(drift)
         }])
         
-        # Combine with existing data
         updated_df = pd.concat([df, new_row], ignore_index=True)
         
         try:
-            # PUSH TO GOOGLE
             conn.update(spreadsheet=SHEET_URL, data=updated_df)
-            st.success(f"Successfully saved {discipline} session!")
+            st.success(f"Saved {discipline} session!")
             st.balloons()
-            # Force a rerun to show the new data
             st.rerun()
         except Exception as e:
             st.error(f"Save Error: {e}")
-
     # --- DYNAMIC INPUTS ---
     if discipline == "Bike":
         avg_work = st.number_input("Avg Power (Watts)", min_value=0, value=130)
